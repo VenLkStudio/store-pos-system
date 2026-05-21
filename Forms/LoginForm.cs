@@ -1,5 +1,4 @@
 using System;
-using System.Data;
 using System.Data.SqlClient;
 using System.Drawing;
 using System.Windows.Forms;
@@ -8,193 +7,134 @@ using RetailShop.Models;
 
 namespace RetailShop.Forms
 {
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Экран 01 – Авторизация
+    //  Wireframe: белый центрированный блок, поля Логин / Пароль, кнопка Войти
+    // ═══════════════════════════════════════════════════════════════════════
     public class LoginForm : Form
     {
-        private Panel pnlHeader;
-        private Label lblTitle;
-        private Label lblSubtitle;
-        private Panel pnlForm;
-        private Label lblLogin;
-        private TextBox txtLogin;
-        private Label lblPassword;
-        private TextBox txtPassword;
-        private Button btnLogin;
-        private Label lblStatus;
-        private PictureBox picIcon;
+        private TextBox _txtLogin, _txtPass;
+        private Label   _lblErr;
 
         public LoginForm()
         {
-            InitializeComponent();
+            Text            = "Розничный магазин – Вход";
+            Size            = new Size(420, 460);
+            MinimumSize     = Size;
+            MaximumSize     = Size;
+            StartPosition   = FormStartPosition.CenterScreen;
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox     = false;
+            BackColor       = Clr.BgApp;
+
+            Build();
         }
 
-        private void InitializeComponent()
+        private void Build()
         {
-            this.Text = "Розничный магазин — Вход в систему";
-            this.Size = new Size(420, 520);
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
-            this.BackColor = Color.FromArgb(245, 245, 245);
-
-            // Header
-            pnlHeader = new Panel
+            // ─── Top dark header bar ─────────────────────────────────────────
+            var header = new Panel
             {
-                Dock = DockStyle.Top,
-                Height = 140,
-                BackColor = Color.FromArgb(33, 150, 243)
+                Dock      = DockStyle.Top,
+                Height    = 48,
+                BackColor = Clr.Accent,
             };
-
-            lblTitle = new Label
+            var lblApp = new Label
             {
-                Text = "🏪 Розничный магазин",
-                Font = new Font("Segoe UI", 16, FontStyle.Bold),
+                Text      = "Розничный магазин",
+                Font      = new Font("Segoe UI", 11f, FontStyle.Bold),
                 ForeColor = Color.White,
-                AutoSize = false,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Location = new Point(0, 30),
-                Width = 420
+                AutoSize  = true,
+                Location  = new Point(16, 14),
             };
+            header.Controls.Add(lblApp);
 
-            lblSubtitle = new Label
+            // ─── White card ───────────────────────────────────────────────────
+            var card = new Panel
             {
-                Text = "Система управления",
-                Font = new Font("Segoe UI", 11),
-                ForeColor = Color.FromArgb(200, 230, 255),
-                AutoSize = false,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Location = new Point(0, 85),
-                Width = 420
+                Size      = new Size(320, 290),
+                BackColor = Clr.BgWhite,
+                Left      = (420 - 320) / 2,
+                Top       = 80,
             };
+            card.Paint += (s, e) =>
+                e.Graphics.DrawRectangle(new Pen(Clr.Border), 0, 0, card.Width - 1, card.Height - 1);
 
-            pnlHeader.Controls.Add(lblTitle);
-            pnlHeader.Controls.Add(lblSubtitle);
-
-            // Form panel
-            pnlForm = new Panel
+            int y = 24;
+            void Row(string label, Control ctrl)
             {
-                Location = new Point(40, 160),
-                Size = new Size(340, 280),
-                BackColor = Color.White
-            };
-            pnlForm.Paint += (s, e) =>
+                var lbl = UI.MakeLabel(label, true);
+                lbl.Location = new Point(20, y);
+                ctrl.Location = new Point(20, y + 20);
+                ctrl.Width = 280;
+                card.Controls.Add(lbl);
+                card.Controls.Add(ctrl);
+                y += 72;
+            }
+
+            _txtLogin = UI.MakeField(280);
+            _txtPass  = UI.MakeField(280);
+            _txtPass.PasswordChar = '●';
+
+            Row("Логин",  _txtLogin);
+            Row("Пароль", _txtPass);
+
+            _lblErr = new Label
             {
-                e.Graphics.DrawRectangle(new Pen(Color.FromArgb(220, 220, 220)), 0, 0, pnlForm.Width - 1, pnlForm.Height - 1);
+                Text      = "",
+                ForeColor = Color.FromArgb(180, 40, 40),
+                Font      = new Font("Segoe UI", 8.5f),
+                Location  = new Point(20, y),
+                Size      = new Size(280, 18),
             };
+            card.Controls.Add(_lblErr);
 
-            lblLogin = new Label
+            y += 24;
+            var btnLogin = UI.MakeBtn("Войти", 280, 36);
+            btnLogin.Location = new Point(20, y);
+            btnLogin.Font     = new Font("Segoe UI", 10f, FontStyle.Bold);
+            btnLogin.Click   += Login_Click;
+            card.Controls.Add(btnLogin);
+
+            // hint
+            var hint = new Label
             {
-                Text = "Логин",
-                Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                ForeColor = Color.FromArgb(80, 80, 80),
-                Location = new Point(20, 20),
-                AutoSize = true
+                Text      = "operator / admin / tovaroved / kassir  •  пароль: 1234",
+                Font      = new Font("Segoe UI", 7.5f),
+                ForeColor = Clr.TextHint,
+                AutoSize  = true,
+                Location  = new Point((420 - 300) / 2, 388),
             };
 
-            txtLogin = new TextBox
-            {
-                Location = new Point(20, 42),
-                Size = new Size(300, 30),
-                Font = new Font("Segoe UI", 11),
-                BorderStyle = BorderStyle.FixedSingle
-            };
+            Controls.AddRange(new Control[] { header, card, hint });
 
-            lblPassword = new Label
-            {
-                Text = "Пароль",
-                Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                ForeColor = Color.FromArgb(80, 80, 80),
-                Location = new Point(20, 90),
-                AutoSize = true
-            };
-
-            txtPassword = new TextBox
-            {
-                Location = new Point(20, 112),
-                Size = new Size(300, 30),
-                Font = new Font("Segoe UI", 11),
-                PasswordChar = '●',
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            btnLogin = new Button
-            {
-                Text = "ВОЙТИ",
-                Location = new Point(20, 170),
-                Size = new Size(300, 42),
-                Font = new Font("Segoe UI", 11, FontStyle.Bold),
-                BackColor = Color.FromArgb(33, 150, 243),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            btnLogin.FlatAppearance.BorderSize = 0;
-            btnLogin.Click += BtnLogin_Click;
-
-            lblStatus = new Label
-            {
-                Text = "",
-                Location = new Point(20, 225),
-                Size = new Size(300, 40),
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.FromArgb(244, 67, 54),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            pnlForm.Controls.AddRange(new Control[] { lblLogin, txtLogin, lblPassword, txtPassword, btnLogin, lblStatus });
-
-            // Hint label
-            var lblHint = new Label
-            {
-                Text = "Тестовые аккаунты: operator/1234, admin/1234\ntovaroved/1234, kassir/1234",
-                Font = new Font("Segoe UI", 8),
-                ForeColor = Color.Gray,
-                Location = new Point(40, 455),
-                AutoSize = true
-            };
-
-            this.Controls.AddRange(new Control[] { pnlHeader, pnlForm, lblHint });
-
-            txtPassword.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) BtnLogin_Click(null, null); };
-            txtLogin.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) txtPassword.Focus(); };
+            _txtPass.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) Login_Click(null, null); };
         }
 
-        private void BtnLogin_Click(object sender, EventArgs e)
+        private void Login_Click(object sender, EventArgs e)
         {
-            string login = txtLogin.Text.Trim();
-            string password = txtPassword.Text;
+            string login = _txtLogin.Text.Trim();
+            string pass  = _txtPass.Text;
+            if (login == "" || pass == "") { _lblErr.Text = "Заполните все поля."; return; }
 
-            if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
-            {
-                lblStatus.Text = "Введите логин и пароль";
-                return;
-            }
+            var dt = DB.Query(
+                "SELECT id,ФИО,роль FROM Сотрудники WHERE логин=@l AND пароль=@p",
+                DB.P("@l", login), DB.P("@p", pass));
 
-            var sql = "SELECT id, ФИО, роль FROM Сотрудники WHERE логин=@l AND пароль=@p";
-            var dt = DbHelper.ExecuteQuery(sql, new[]
-            {
-                new SqlParameter("@l", login),
-                new SqlParameter("@p", password)
-            });
+            if (dt.Rows.Count == 0) { _lblErr.Text = "Неверный логин или пароль."; _txtPass.Clear(); return; }
 
-            if (dt.Rows.Count == 0)
-            {
-                lblStatus.Text = "Неверный логин или пароль";
-                txtPassword.Clear();
-                return;
-            }
+            var r = dt.Rows[0];
+            Session.UserId = (int)r["id"];
+            Session.FIO    = r["ФИО"].ToString();
+            Session.Role   = r["роль"].ToString();
+            Session.Login  = login;
 
-            var row = dt.Rows[0];
-            Session.UserId = (int)row["id"];
-            Session.UserFIO = row["ФИО"].ToString();
-            Session.UserRole = row["роль"].ToString();
-            Session.UserName = login;
-
-            this.Hide();
+            Hide();
             new MainForm().ShowDialog();
-            this.Show();
             Session.Clear();
-            txtPassword.Clear();
-            lblStatus.Text = "";
+            Show();
+            _txtPass.Clear();
+            _lblErr.Text = "";
         }
     }
 }

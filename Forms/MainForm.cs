@@ -5,333 +5,243 @@ using RetailShop.Models;
 
 namespace RetailShop.Forms
 {
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Главная оболочка
+    //  Wireframe: тёмный хедер + левый sidebar + контентная область
+    // ═══════════════════════════════════════════════════════════════════════
     public class MainForm : Form
     {
-        private Panel pnlSidebar;
-        private Panel pnlHeader;
-        private Panel pnlContent;
-        private Label lblUserInfo;
-        private Label lblRole;
-        private Button btnActive;
+        private Panel   _pnlContent;
+        private Panel   _sidebar;
+        private Button  _activeBtn;
 
         public MainForm()
         {
-            InitializeComponent();
-            LoadMenuForRole();
+            Text            = "Розничный магазин";
+            Size            = new Size(1180, 740);
+            MinimumSize     = new Size(1000, 640);
+            StartPosition   = FormStartPosition.CenterScreen;
+            BackColor       = Clr.BgApp;
+            Build();
+            ShowHome();
         }
 
-        private void InitializeComponent()
+        private void Build()
         {
-            this.Text = "Розничный магазин";
-            this.Size = new Size(1200, 750);
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.MinimumSize = new Size(1000, 650);
-            this.BackColor = Color.FromArgb(245, 245, 248);
+            // ─── Header ──────────────────────────────────────────────────────
+            var header = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = Clr.Accent };
 
-            // Header
-            pnlHeader = new Panel
+            var lblName = new Label
             {
-                Dock = DockStyle.Top,
-                Height = 56,
-                BackColor = Color.FromArgb(33, 150, 243)
-            };
-
-            var lblAppName = new Label
-            {
-                Text = "🏪  Розничный магазин",
-                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                Text      = "Розничный магазин",
+                Font      = new Font("Segoe UI", 11f, FontStyle.Bold),
                 ForeColor = Color.White,
-                AutoSize = true,
-                Location = new Point(16, 14)
+                AutoSize  = true,
+                Location  = new Point(16, 14),
             };
 
-            lblUserInfo = new Label
+            var lblUser = new Label
             {
-                Text = Session.UserFIO,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.White,
-                AutoSize = true,
-                Location = new Point(900, 10)
+                Text      = Session.FIO,
+                Font      = new Font("Segoe UI", 9f),
+                ForeColor = Color.FromArgb(200, 200, 200),
+                AutoSize  = true,
+                Location  = new Point(860, 10),
             };
-
-            lblRole = new Label
+            var lblRole = new Label
             {
-                Text = GetRoleDisplay(Session.UserRole),
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.FromArgb(180, 220, 255),
-                AutoSize = true,
-                Location = new Point(900, 32)
+                Text      = Session.Role,
+                Font      = new Font("Segoe UI", 8f),
+                ForeColor = Color.FromArgb(150, 150, 150),
+                AutoSize  = true,
+                Location  = new Point(860, 28),
+            };
+            var btnExit = UI.MakeBtnOutline("Выйти", 80, 28);
+            btnExit.ForeColor = Color.White;
+            btnExit.BackColor = Color.Transparent;
+            btnExit.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            btnExit.Location  = new Point(1070, 10);
+            btnExit.Click    += (s, e) => Close();
+
+            header.Controls.AddRange(new Control[] { lblName, lblUser, lblRole, btnExit });
+            header.Resize += (s, e) => {
+                lblUser.Location = new Point(header.Width - 240, 10);
+                lblRole.Location = new Point(header.Width - 240, 28);
+                btnExit.Location = new Point(header.Width - 96, 10);
             };
 
-            var btnLogout = new Button
+            // ─── Sidebar ─────────────────────────────────────────────────────
+            _sidebar = new Panel
             {
-                Text = "Выйти",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.White,
-                BackColor = Color.FromArgb(25, 118, 210),
-                FlatStyle = FlatStyle.Flat,
-                Size = new Size(80, 32),
-                Location = new Point(1090, 12),
-                Cursor = Cursors.Hand
+                Dock      = DockStyle.Left,
+                Width     = 200,
+                BackColor = Clr.Sidebar,
             };
-            btnLogout.FlatAppearance.BorderSize = 0;
-            btnLogout.Click += (s, e) => this.Close();
 
-            pnlHeader.Controls.AddRange(new Control[] { lblAppName, lblUserInfo, lblRole, btnLogout });
-            pnlHeader.Resize += (s, e) =>
+            // ─── Content ─────────────────────────────────────────────────────
+            _pnlContent = new Panel
             {
-                lblUserInfo.Location = new Point(pnlHeader.Width - 240, 10);
-                lblRole.Location = new Point(pnlHeader.Width - 240, 32);
-                btnLogout.Location = new Point(pnlHeader.Width - 100, 12);
+                Dock      = DockStyle.Fill,
+                BackColor = Clr.BgApp,
+                Padding   = new Padding(20, 16, 20, 16),
             };
 
-            // Sidebar
-            pnlSidebar = new Panel
-            {
-                Dock = DockStyle.Left,
-                Width = 210,
-                BackColor = Color.FromArgb(30, 35, 50),
-                Padding = new Padding(0, 10, 0, 0)
-            };
+            Controls.Add(_pnlContent);
+            Controls.Add(_sidebar);
+            Controls.Add(header);
 
-            // Content
-            pnlContent = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(245, 245, 248),
-                Padding = new Padding(20)
-            };
-
-            this.Controls.Add(pnlContent);
-            this.Controls.Add(pnlSidebar);
-            this.Controls.Add(pnlHeader);
+            BuildSidebar();
         }
 
-        private void LoadMenuForRole()
+        private void BuildSidebar()
         {
-            pnlSidebar.Controls.Clear();
-            int y = 10;
+            _sidebar.Controls.Clear();
+            int y = 12;
 
-            void AddSection(string title)
+            void Section(string title)
             {
                 var lbl = new Label
                 {
-                    Text = title.ToUpper(),
-                    Font = new Font("Segoe UI", 7, FontStyle.Bold),
-                    ForeColor = Color.FromArgb(100, 110, 130),
-                    Location = new Point(14, y + 8),
-                    AutoSize = true
+                    Text      = title.ToUpper(),
+                    Font      = new Font("Segoe UI", 7f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(90, 90, 90),
+                    Location  = new Point(12, y + 6),
+                    AutoSize  = true,
                 };
-                pnlSidebar.Controls.Add(lbl);
-                y += 28;
+                _sidebar.Controls.Add(lbl);
+                y += 26;
             }
 
-            void AddBtn(string text, string icon, EventHandler handler)
+            void Item(string text, Action onClick)
             {
                 var btn = new Button
                 {
-                    Text = $"  {icon}  {text}",
-                    Font = new Font("Segoe UI", 10),
-                    ForeColor = Color.FromArgb(200, 210, 230),
+                    Text      = "  " + text,
+                    Location  = new Point(0, y),
+                    Size      = new Size(200, 36),
+                    Font      = new Font("Segoe UI", 9.5f),
+                    ForeColor = Color.FromArgb(200, 200, 200),
                     BackColor = Color.Transparent,
                     FlatStyle = FlatStyle.Flat,
                     TextAlign = ContentAlignment.MiddleLeft,
-                    Size = new Size(210, 40),
-                    Location = new Point(0, y),
-                    Cursor = Cursors.Hand
+                    Cursor    = Cursors.Hand,
                 };
-                btn.FlatAppearance.BorderSize = 0;
-                btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(50, 60, 80);
+                btn.FlatAppearance.BorderSize           = 0;
+                btn.FlatAppearance.MouseOverBackColor   = Color.FromArgb(50, 50, 50);
+                btn.FlatAppearance.MouseDownBackColor   = Color.FromArgb(60, 60, 60);
                 btn.Click += (s, e) =>
                 {
-                    if (btnActive != null)
-                    {
-                        btnActive.BackColor = Color.Transparent;
-                        btnActive.ForeColor = Color.FromArgb(200, 210, 230);
-                    }
-                    btn.BackColor = Color.FromArgb(33, 150, 243);
+                    if (_activeBtn != null)
+                    { _activeBtn.BackColor = Color.Transparent; _activeBtn.ForeColor = Color.FromArgb(200, 200, 200); }
+                    btn.BackColor = Color.FromArgb(55, 55, 55);
                     btn.ForeColor = Color.White;
-                    btnActive = btn;
-                    handler(s, e);
+                    _activeBtn = btn;
+                    onClick();
                 };
-                pnlSidebar.Controls.Add(btn);
-                y += 40;
+                _sidebar.Controls.Add(btn);
+                y += 36;
             }
 
-            // Common
-            AddSection("Главная");
-            AddBtn("Главная", "🏠", (s, e) => ShowDashboard());
+            Section("Главная");
+            Item("Главная",          ShowHome);
 
-            // Operator
-            if (Session.IsOperator || Session.IsAdmin)
+            if (Session.IsOperator || Session.IsAdmin || Session.IsTovaroved)
             {
-                AddSection("Товары");
-                AddBtn("Приём партии", "📦", (s, e) => ShowForm(new PartiaTovara()));
-                AddBtn("Товары", "🗃", (s, e) => ShowForm(new TovaryForm()));
-                AddBtn("Остатки склада", "🏭", (s, e) => ShowForm(new SkladForm()));
+                Section("Склад и товары");
+                if (Session.IsOperator || Session.IsAdmin)
+                    Item("Приём партии товара", () => ShowPage(new PartiaTovara()));
+                Item("Товары",               () => ShowPage(new TovaryForm()));
+                Item("Остатки склада",        () => ShowPage(new SkladForm()));
             }
 
             if (Session.IsAdmin)
             {
-                AddSection("Администратор");
-                AddBtn("Розничные цены", "💰", (s, e) => ShowForm(new RoznichnyCenyForm()));
-                AddBtn("Заявки в зал", "📋", (s, e) => ShowForm(new ZayavkiZalForm()));
+                Section("Администратор");
+                Item("Розничные цены",    () => ShowPage(new CenyForm()));
+                Item("Заявки в зал",      () => ShowPage(new ZayavkiForm()));
             }
 
             if (Session.IsTovaroved)
             {
-                AddSection("Товаровед");
-                AddBtn("Приём партии", "📦", (s, e) => ShowForm(new PartiaTovara()));
-                AddBtn("Товары", "🗃", (s, e) => ShowForm(new TovaryForm()));
-                AddBtn("Остатки склада", "🏭", (s, e) => ShowForm(new SkladForm()));
-                AddBtn("Возвраты поставщику", "↩", (s, e) => ShowForm(new VozvratForm()));
+                Section("Товаровед");
+                Item("Приём партии товара", () => ShowPage(new PartiaTovara()));
+                Item("Возврат поставщику",  () => ShowPage(new VozvratForm()));
             }
 
             if (Session.IsKassir)
             {
-                AddSection("Касса");
-                AddBtn("Реализация товаров", "🛒", (s, e) => ShowForm(new RealizaciyaForm()));
-                AddBtn("Кассы", "🖥", (s, e) => ShowForm(new KassyForm()));
-                AddBtn("Кассовые отчёты", "📊", (s, e) => ShowForm(new KassovyeOtchety()));
-                AddSection("Склад");
-                AddBtn("Инвентаризация", "📝", (s, e) => ShowForm(new InventarizaciyaForm()));
+                Section("Касса");
+                Item("Кассы (смены)",       () => ShowPage(new KassyForm()));
+                Item("Реализация товаров",  () => ShowPage(new RealizaciyaForm()));
+                Item("Кассовые отчёты",     () => ShowPage(new OtchyotyForm()));
+                Section("Инвентаризация");
+                Item("Инвентаризация",      () => ShowPage(new InventarizaciyaForm()));
             }
-
-            ShowDashboard();
         }
 
-        private void ShowForm(Form form)
+        private void ShowPage(Form f)
         {
-            pnlContent.Controls.Clear();
-            form.TopLevel = false;
-            form.FormBorderStyle = FormBorderStyle.None;
-            form.Dock = DockStyle.Fill;
-            pnlContent.Controls.Add(form);
-            form.Show();
+            _pnlContent.Controls.Clear();
+            f.TopLevel          = false;
+            f.FormBorderStyle   = FormBorderStyle.None;
+            f.Dock              = DockStyle.Fill;
+            f.BackColor         = Clr.BgApp;
+            _pnlContent.Controls.Add(f);
+            f.Show();
         }
 
-        private void ShowDashboard()
+        private void ShowHome()
         {
-            pnlContent.Controls.Clear();
-            var dash = new DashboardPanel(Session.UserFIO, Session.UserRole);
-            dash.Dock = DockStyle.Fill;
-            pnlContent.Controls.Add(dash);
-        }
-
-        private string GetRoleDisplay(string role)
-        {
-            switch (role)
-            {
-                case "Оператор": return "Оператор";
-                case "Администратор": return "Администратор";
-                case "Товаровед": return "Товаровед";
-                case "СтаршийКассир": return "Старший кассир";
-                default: return role;
-            }
+            _pnlContent.Controls.Clear();
+            _pnlContent.Controls.Add(new HomePanel());
         }
     }
 
-    // ─── Dashboard Panel ────────────────────────────────────────────────────────
-    public class DashboardPanel : Panel
+    // ─── Home dashboard ───────────────────────────────────────────────────────
+    public class HomePanel : Panel
     {
-        public DashboardPanel(string fio, string role)
+        public HomePanel()
         {
-            this.BackColor = Color.FromArgb(245, 245, 248);
-            BuildUI(fio, role);
-        }
+            Dock      = DockStyle.Fill;
+            BackColor = Clr.BgApp;
 
-        private void BuildUI(string fio, string role)
-        {
-            var lbl = new Label
-            {
-                Text = $"Добро пожаловать, {fio}!",
-                Font = new Font("Segoe UI", 20, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 35, 50),
-                AutoSize = true,
-                Location = new Point(0, 20)
-            };
+            var title = UI.MakeTitle("Добро пожаловать, " + Session.FIO + "!");
+            title.Location = new Point(0, 0);
 
-            var lbl2 = new Label
-            {
-                Text = $"Роль: {role}  •  {DateTime.Now:dddd, d MMMM yyyy}",
-                Font = new Font("Segoe UI", 11),
-                ForeColor = Color.Gray,
-                AutoSize = true,
-                Location = new Point(0, 58)
-            };
+            var sub = UI.MakeLabel(Session.Role + "  •  " + DateTime.Now.ToString("dd MMMM yyyy"));
+            sub.Location = new Point(0, 32);
 
-            this.Controls.Add(lbl);
-            this.Controls.Add(lbl2);
+            Controls.Add(title);
+            Controls.Add(sub);
 
-            // Quick stats
-            int y = 110;
-            var stats = GetStats();
+            // Stat cards
             int x = 0;
-            foreach (var stat in stats)
+            foreach (var (lbl, sql) in new[] {
+                ("Товаров в базе",    "SELECT COUNT(*) FROM Товары"),
+                ("Единиц на складе", "SELECT ISNULL(SUM(количество),0) FROM Склад"),
+                ("Чеков сегодня",    "SELECT COUNT(*) FROM Чеки WHERE CAST(дата AS DATE)=CAST(GETDATE() AS DATE)"),
+                ("Сотрудников",      "SELECT COUNT(*) FROM Сотрудники"),
+            })
             {
-                var card = CreateStatCard(stat.Item1, stat.Item2, stat.Item3);
-                card.Location = new Point(x, y);
-                this.Controls.Add(card);
-                x += 195;
+                string val = "—";
+                try { var r = Database.DB.Scalar(sql); if (r != null) val = r.ToString(); } catch { }
+                Controls.Add(MakeCard(lbl, val, x, 72));
+                x += 185;
             }
         }
 
-        private Panel CreateStatCard(string title, string value, Color color)
+        private Panel MakeCard(string title, string value, int x, int y)
         {
-            var card = new Panel
-            {
-                Size = new Size(180, 100),
-                BackColor = Color.White
-            };
-            card.Paint += (s, e) =>
-            {
-                e.Graphics.DrawRectangle(new Pen(Color.FromArgb(220, 220, 220)), 0, 0, card.Width - 1, card.Height - 1);
-                e.Graphics.FillRectangle(new SolidBrush(color), 0, 0, 5, 100);
-            };
+            var card = UI.MakeCard(170, 90);
+            card.Location = new Point(x, y);
 
-            var lblVal = new Label
-            {
-                Text = value,
-                Font = new Font("Segoe UI", 22, FontStyle.Bold),
-                ForeColor = color,
-                AutoSize = true,
-                Location = new Point(16, 18)
-            };
-            var lblTitle = new Label
-            {
-                Text = title,
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.Gray,
-                AutoSize = true,
-                Location = new Point(16, 60)
-            };
-            card.Controls.Add(lblVal);
-            card.Controls.Add(lblTitle);
+            var v = new Label { Text = value, Font = new Font("Segoe UI", 20f, FontStyle.Bold),
+                                ForeColor = Clr.TextPrimary, AutoSize = true, Location = new Point(12, 12) };
+            var t = new Label { Text = title, Font = new Font("Segoe UI", 8.5f),
+                                ForeColor = Clr.TextSecond, AutoSize = true, Location = new Point(12, 54) };
+            card.Controls.Add(v);
+            card.Controls.Add(t);
             return card;
-        }
-
-        private (string, string, Color)[] GetStats()
-        {
-            string товаров = "—", остаток = "—", чеков = "—", сотрудников = "—";
-            try
-            {
-                var r1 = Database.DbHelper.ExecuteScalar("SELECT COUNT(*) FROM Товары");
-                if (r1 != null) товаров = r1.ToString();
-                var r2 = Database.DbHelper.ExecuteScalar("SELECT ISNULL(SUM(количество),0) FROM Склад");
-                if (r2 != null) остаток = r2.ToString();
-                var r3 = Database.DbHelper.ExecuteScalar("SELECT COUNT(*) FROM Чеки WHERE CAST(дата AS DATE)=CAST(GETDATE() AS DATE)");
-                if (r3 != null) чеков = r3.ToString();
-                var r4 = Database.DbHelper.ExecuteScalar("SELECT COUNT(*) FROM Сотрудники");
-                if (r4 != null) сотрудников = r4.ToString();
-            }
-            catch { }
-            return new[]
-            {
-                ("Товаров в базе", товаров, Color.FromArgb(33,150,243)),
-                ("Единиц на складе", остаток, Color.FromArgb(76,175,80)),
-                ("Чеков сегодня", чеков, Color.FromArgb(255,152,0)),
-                ("Сотрудников", сотрудников, Color.FromArgb(156,39,176))
-            };
         }
     }
 }

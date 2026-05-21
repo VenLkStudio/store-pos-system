@@ -8,403 +8,351 @@ using RetailShop.Models;
 
 namespace RetailShop.Forms
 {
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Экраны 02-04 – Приём партии товара
+    //  Wireframe: список партий | таблица состава | документы | кнопки
+    // ═══════════════════════════════════════════════════════════════════════
     public class PartiaTovara : Form
     {
-        private TabControl tabs;
-        private DataGridView dgvPartii, dgvStroki, dgvDocs;
-        private Button btnAdd, btnRefresh, btnSend, btnAddDoc;
-        private ComboBox cmbPostavshik;
-        private int selectedPartiyaId = -1;
+        private DataGridView _dgvPartii, _dgvStroki, _dgvDocs;
+        private Label        _lblStatus;
+        private int          _selId = -1;
 
-        public PartiaTovara()
+        public PartiaTovara() { Build(); Load_(); }
+
+        private void Build()
         {
-            InitializeComponent();
-            LoadPartii();
-        }
+            BackColor = Clr.BgApp;
 
-        private void InitializeComponent()
-        {
-            this.Text = "Приём партии товара";
-            this.BackColor = Color.FromArgb(245, 245, 248);
+            // ── Заголовок ────────────────────────────────────────────────────
+            var title = UI.MakeTitle("Приём партии товара");
+            title.Location = new Point(0, 0);
 
-            var lblTitle = new Label
+            // ── Toolbar ──────────────────────────────────────────────────────
+            var tbPanel = new Panel { Location = new Point(0, 36), Height = 38, BackColor = Clr.BgApp };
+
+            var lblPst  = UI.MakeLabel("Поставщик:");
+            lblPst.Location = new Point(0, 9);
+
+            var cmbPst = UI.MakeCombo(200);
+            cmbPst.Location = new Point(80, 4);
+            LoadCombo(cmbPst, "SELECT id, название FROM Поставщики");
+
+            var btnNew = UI.MakeBtn("+ Новая партия", 130, 30);
+            btnNew.Location = new Point(292, 4);
+            btnNew.Click   += (s, e) => NewPartia(cmbPst);
+
+            var btnRefresh = UI.MakeBtnOutline("Обновить", 90, 30);
+            btnRefresh.Location = new Point(430, 4);
+            btnRefresh.Click   += (s, e) => Load_();
+
+            tbPanel.Controls.AddRange(new Control[] { lblPst, cmbPst, btnNew, btnRefresh });
+
+            // ── TabControl ───────────────────────────────────────────────────
+            var tabs = new TabControl
             {
-                Text = "📦  Приём партии товара",
-                Font = new Font("Segoe UI", 16, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 35, 50),
-                AutoSize = true,
-                Location = new Point(0, 0)
+                Location = new Point(0, 82),
+                Size     = new Size(940, 540),
+                Anchor   = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
+                Font     = new Font("Segoe UI", 9.5f),
             };
 
-            // Toolbar
-            var toolbar = new Panel { Location = new Point(0, 40), Height = 44, Width = 900 };
+            // Tab 1 – Партии
+            var tpPartii = new TabPage("Партии товара") { BackColor = Clr.BgApp };
+            _dgvPartii = UI.MakeGrid();
+            _dgvPartii.Dock               = DockStyle.Fill;
+            _dgvPartii.SelectionChanged  += (s, e) => OnSelectPartia();
 
-            var lblPostavshik = new Label { Text = "Поставщик:", Location = new Point(0, 12), AutoSize = true };
-            cmbPostavshik = new ComboBox
+            var barPartii = BuildBottomBar(tpPartii, new[]
             {
-                Location = new Point(90, 8),
-                Width = 220,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 10)
-            };
-
-            btnAdd = new Button
-            {
-                Text = "+ Создать партию",
-                Location = new Point(325, 6),
-                Size = new Size(150, 32),
-                BackColor = Color.FromArgb(33, 150, 243),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            btnAdd.FlatAppearance.BorderSize = 0;
-            btnAdd.Click += BtnAdd_Click;
-
-            btnRefresh = new Button
-            {
-                Text = "↻ Обновить",
-                Location = new Point(485, 6),
-                Size = new Size(110, 32),
-                BackColor = Color.FromArgb(240, 240, 240),
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9),
-                Cursor = Cursors.Hand
-            };
-            btnRefresh.FlatAppearance.BorderSize = 0;
-            btnRefresh.Click += (s, e) => LoadPartii();
-
-            toolbar.Controls.AddRange(new Control[] { lblPostavshik, cmbPostavshik, btnAdd, btnRefresh });
-
-            // Tabs
-            tabs = new TabControl
-            {
-                Location = new Point(0, 95),
-                Size = new Size(950, 550),
-                Font = new Font("Segoe UI", 10)
-            };
-
-            var tabPartii = new TabPage("Партии товара");
-            var tabStroki = new TabPage("Состав партии");
-            var tabDocs = new TabPage("Документы");
-
-            // ── Tab 1: Партии ──────────────────────────────────────────────────
-            dgvPartii = CreateGrid();
-            dgvPartii.Dock = DockStyle.Fill;
-            dgvPartii.SelectionChanged += DgvPartii_SelectionChanged;
-
-            btnSend = new Button
-            {
-                Text = "📤 Отправить на склад",
-                Dock = DockStyle.Bottom,
-                Height = 36,
-                BackColor = Color.FromArgb(76, 175, 80),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            btnSend.FlatAppearance.BorderSize = 0;
-            btnSend.Click += BtnSend_Click;
-
-            tabPartii.Controls.Add(dgvPartii);
-            tabPartii.Controls.Add(btnSend);
-
-            // ── Tab 2: Строки ──────────────────────────────────────────────────
-            var panelStroki = new Panel { Dock = DockStyle.Fill };
-            dgvStroki = CreateGrid();
-            dgvStroki.Dock = DockStyle.Fill;
-
-            var panelAddStroka = new Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(250, 250, 250) };
-            var cmbTovar = new ComboBox { Location = new Point(5, 12), Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
-            var numKol = new NumericUpDown { Location = new Point(215, 12), Width = 80, Minimum = 1, Maximum = 10000, Value = 1 };
-            var numCena = new NumericUpDown { Location = new Point(305, 12), Width = 100, Minimum = 0, Maximum = 999999, DecimalPlaces = 2, Value = 0 };
-            var btnAddStroka = new Button
-            {
-                Text = "+ Добавить",
-                Location = new Point(415, 9),
-                Size = new Size(100, 30),
-                BackColor = Color.FromArgb(33, 150, 243),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            btnAddStroka.FlatAppearance.BorderSize = 0;
-            btnAddStroka.Click += (s, e) =>
-            {
-                if (selectedPartiyaId < 0) { MessageBox.Show("Выберите партию!"); return; }
-                if (cmbTovar.SelectedValue == null) { MessageBox.Show("Выберите товар!"); return; }
-                DbHelper.ExecuteNonQuery(
-                    "INSERT INTO СтрокиПартии(партияId,товарId,количество,цена) VALUES(@p,@t,@k,@c)",
-                    new[] {
-                        new SqlParameter("@p", selectedPartiyaId),
-                        new SqlParameter("@t", cmbTovar.SelectedValue),
-                        new SqlParameter("@k", (int)numKol.Value),
-                        new SqlParameter("@c", numCena.Value)
-                    });
-                LoadStroki(selectedPartiyaId);
-            };
-
-            panelAddStroka.Controls.AddRange(new Control[] {
-                new Label { Text = "Товар:", Location = new Point(5, -2), AutoSize = true },
-                cmbTovar,
-                new Label { Text = "Кол-во:", Location = new Point(215, -2), AutoSize = true },
-                numKol,
-                new Label { Text = "Цена:", Location = new Point(305, -2), AutoSize = true },
-                numCena,
-                btnAddStroka
+                ("Отправить на склад", (Action)SendToSklad),
+                ("Отклонить",          (Action)RejectPartia),
             });
 
-            panelStroki.Controls.Add(dgvStroki);
-            panelStroki.Controls.Add(panelAddStroka);
-            tabStroki.Controls.Add(panelStroki);
+            tpPartii.Controls.Add(_dgvPartii);
+            tpPartii.Controls.Add(barPartii);
 
-            LoadComboBoxes(cmbTovar);
+            // Tab 2 – Состав
+            var tpStroki = new TabPage("Состав партии") { BackColor = Clr.BgApp };
+            _dgvStroki = UI.MakeGrid();
+            _dgvStroki.Dock = DockStyle.Fill;
 
-            // ── Tab 3: Документы ───────────────────────────────────────────────
-            var panelDocs = new Panel { Dock = DockStyle.Fill };
-            dgvDocs = CreateGrid();
-            dgvDocs.Dock = DockStyle.Fill;
+            var addStrokaRow = BuildAddStrokaRow(tpStroki);
+            tpStroki.Controls.Add(_dgvStroki);
+            tpStroki.Controls.Add(addStrokaRow);
 
-            btnAddDoc = new Button
+            // Tab 3 – Документы
+            var tpDocs = new TabPage("Документы") { BackColor = Clr.BgApp };
+            _dgvDocs = UI.MakeGrid();
+            _dgvDocs.Dock = DockStyle.Fill;
+
+            var barDocs = BuildBottomBar(tpDocs, new[]
             {
-                Text = "+ Добавить документ",
-                Dock = DockStyle.Bottom,
-                Height = 36,
-                BackColor = Color.FromArgb(33, 150, 243),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold)
+                ("+ Добавить документ", (Action)AddDoc),
+                ("Отметить проверен",   (Action)MarkChecked),
+            });
+
+            tpDocs.Controls.Add(_dgvDocs);
+            tpDocs.Controls.Add(barDocs);
+
+            tabs.TabPages.AddRange(new[] { tpPartii, tpStroki, tpDocs });
+
+            // Status strip
+            _lblStatus = new Label
+            {
+                Dock      = DockStyle.Bottom,
+                Height    = 22,
+                Font      = new Font("Segoe UI", 8.5f),
+                ForeColor = Clr.TextSecond,
+                BackColor = Clr.BgApp,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding   = new Padding(4, 0, 0, 0),
             };
-            btnAddDoc.FlatAppearance.BorderSize = 0;
-            btnAddDoc.Click += BtnAddDoc_Click;
 
-            panelDocs.Controls.Add(dgvDocs);
-            panelDocs.Controls.Add(btnAddDoc);
-            tabDocs.Controls.Add(panelDocs);
-
-            tabs.TabPages.AddRange(new[] { tabPartii, tabStroki, tabDocs });
-
-            this.Controls.AddRange(new Control[] { lblTitle, toolbar, tabs });
-
-            LoadPostavshikiCombo();
+            Controls.AddRange(new Control[] { title, tbPanel, tabs, _lblStatus });
         }
 
-        private DataGridView CreateGrid()
+        private Panel BuildBottomBar(TabPage tp, (string text, Action act)[] buttons)
         {
-            var dgv = new DataGridView
+            var bar = new Panel
             {
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                ReadOnly = true,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                RowHeadersVisible = false,
-                BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.None,
-                Font = new Font("Segoe UI", 10),
-                GridColor = Color.FromArgb(230, 230, 230)
+                Dock      = DockStyle.Bottom,
+                Height    = 40,
+                BackColor = Clr.BgApp,
             };
-            dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(33, 150, 243);
-            dgv.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgv.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            dgv.EnableHeadersVisualStyles = false;
-            dgv.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 255);
-            return dgv;
-        }
-
-        private void LoadPostavshikiCombo()
-        {
-            var dt = DbHelper.ExecuteQuery("SELECT id, название FROM Поставщики");
-            cmbPostavshik.DataSource = dt;
-            cmbPostavshik.DisplayMember = "название";
-            cmbPostavshik.ValueMember = "id";
-        }
-
-        private void LoadComboBoxes(ComboBox cmbTovar)
-        {
-            var dt = DbHelper.ExecuteQuery("SELECT id, название FROM Товары");
-            cmbTovar.DataSource = dt;
-            cmbTovar.DisplayMember = "название";
-            cmbTovar.ValueMember = "id";
-        }
-
-        private void LoadPartii()
-        {
-            var sql = @"SELECT п.id, п.датаПоступления as [Дата], пост.название as [Поставщик], 
-                        сотр.ФИО as [Оператор], п.статус as [Статус]
-                        FROM ПартииТовара п
-                        JOIN Поставщики пост ON п.поставщикId=пост.id
-                        JOIN Сотрудники сотр ON п.операторId=сотр.id
-                        ORDER BY п.датаПоступления DESC";
-            dgvPartii.DataSource = DbHelper.ExecuteQuery(sql);
-        }
-
-        private void LoadStroki(int партияId)
-        {
-            var sql = @"SELECT т.название as [Товар], сп.количество as [Количество], 
-                        сп.цена as [Цена], (сп.количество*сп.цена) as [Сумма]
-                        FROM СтрокиПартии сп JOIN Товары т ON сп.товарId=т.id
-                        WHERE сп.партияId=@id";
-            dgvStroki.DataSource = DbHelper.ExecuteQuery(sql, new[] { new SqlParameter("@id", партияId) });
-        }
-
-        private void LoadDocs(int партияId)
-        {
-            var sql = @"SELECT тип as [Тип], номер as [Номер], дата as [Дата], 
-                        сумма as [Сумма], CASE WHEN проверен=1 THEN 'Да' ELSE 'Нет' END as [Проверен]
-                        FROM Документы WHERE партияId=@id";
-            dgvDocs.DataSource = DbHelper.ExecuteQuery(sql, new[] { new SqlParameter("@id", партияId) });
-        }
-
-        private void DgvPartii_SelectionChanged(object sender, EventArgs e)
-        {
-            if (dgvPartii.SelectedRows.Count == 0) return;
-            selectedPartiyaId = (int)dgvPartii.SelectedRows[0].Cells["id"].Value;
-            LoadStroki(selectedPartiyaId);
-            LoadDocs(selectedPartiyaId);
-        }
-
-        private void BtnAdd_Click(object sender, EventArgs e)
-        {
-            if (cmbPostavshik.SelectedValue == null) { MessageBox.Show("Выберите поставщика!"); return; }
-            DbHelper.ExecuteNonQuery(
-                "INSERT INTO ПартииТовара(поставщикId,операторId) VALUES(@p,@o)",
-                new[] {
-                    new SqlParameter("@p", cmbPostavshik.SelectedValue),
-                    new SqlParameter("@o", Session.UserId)
-                });
-            LoadPartii();
-        }
-
-        private void BtnSend_Click(object sender, EventArgs e)
-        {
-            if (selectedPartiyaId < 0) { MessageBox.Show("Выберите партию!"); return; }
-
-            // Check that all 3 document types exist
-            var docsCount = DbHelper.ExecuteScalar(
-                "SELECT COUNT(DISTINCT тип) FROM Документы WHERE партияId=@id",
-                new[] { new SqlParameter("@id", selectedPartiyaId) });
-
-            if (Convert.ToInt32(docsCount) < 3)
+            int bx = 0;
+            foreach (var (t, a) in buttons)
             {
-                MessageBox.Show("Необходимо добавить все 3 документа (Накладная, СчетФактура, СертификатКачества) перед отправкой на склад!",
-                    "Проверка документов", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                var b = UI.MakeBtn(t, 160, 30);
+                b.Location = new Point(bx, 5);
+                var captured = a;
+                b.Click += (s, e) => captured();
+                bar.Controls.Add(b);
+                bx += 170;
+            }
+            return bar;
+        }
+
+        private Panel BuildAddStrokaRow(TabPage tp)
+        {
+            var bar = new Panel { Dock = DockStyle.Bottom, Height = 44, BackColor = Clr.BgApp };
+
+            var cmbT = UI.MakeCombo(200); cmbT.Location = new Point(0, 7);
+            LoadCombo(cmbT, "SELECT id, название FROM Товары");
+
+            var numK = new NumericUpDown { Location = new Point(210, 7), Width = 80, Minimum = 1, Maximum = 9999, Font = new Font("Segoe UI", 9f) };
+            var numC = new NumericUpDown { Location = new Point(300, 7), Width = 100, Minimum = 0, Maximum = 999999, DecimalPlaces = 2, Font = new Font("Segoe UI", 9f) };
+
+            var lblK = UI.MakeLabel("Кол-во:"); lblK.Location = new Point(207, -2);
+            var lblC = UI.MakeLabel("Цена:");   lblC.Location = new Point(297, -2);
+
+            var btnAdd = UI.MakeBtn("+ Строка", 100, 30);
+            btnAdd.Location = new Point(410, 7);
+            btnAdd.Click += (s, e) =>
+            {
+                if (_selId < 0) { Status("Выберите партию на вкладке «Партии»"); return; }
+                if (cmbT.SelectedValue == null) { Status("Выберите товар"); return; }
+                DB.Exec("INSERT INTO СтрокиПартии(партияId,товарId,количество,цена) VALUES(@p,@t,@k,@c)",
+                    DB.P("@p", _selId), DB.P("@t", cmbT.SelectedValue),
+                    DB.P("@k", (int)numK.Value), DB.P("@c", numC.Value));
+                LoadStroki();
+                Status("Строка добавлена");
+            };
+            bar.Controls.AddRange(new Control[] { UI.MakeLabel("Товар:"), cmbT, lblK, numK, lblC, numC, btnAdd });
+            return bar;
+        }
+
+        // ── Load ──────────────────────────────────────────────────────────────
+        private void Load_()
+        {
+            var dt = DB.Query(@"
+                SELECT п.id, FORMAT(п.датаПоступления,'dd.MM.yyyy HH:mm') AS [Дата],
+                       пс.название AS [Поставщик],
+                       с.ФИО       AS [Оператор],
+                       п.статус    AS [Статус],
+                       (SELECT ISNULL(SUM(количество*цена),0)
+                        FROM СтрокиПартии WHERE партияId=п.id) AS [Сумма, ₽]
+                FROM ПартииТовара п
+                JOIN Поставщики пс ON пс.id=п.поставщикId
+                JOIN Сотрудники с  ON с.id=п.операторId
+                ORDER BY п.датаПоступления DESC");
+            _dgvPartii.DataSource = dt;
+            UI.HideCols(_dgvPartii, "id");
+        }
+
+        private void LoadStroki()
+        {
+            if (_selId < 0) return;
+            var dt = DB.Query(@"
+                SELECT т.название AS [Товар], т.единицаИзмерения AS [Ед],
+                       сп.количество AS [Кол-во], сп.цена AS [Цена, ₽],
+                       сп.количество*сп.цена AS [Сумма, ₽]
+                FROM СтрокиПартии сп
+                JOIN Товары т ON т.id=сп.товарId
+                WHERE сп.партияId=@id", DB.P("@id", _selId));
+            _dgvStroki.DataSource = dt;
+        }
+
+        private void LoadDocs()
+        {
+            if (_selId < 0) return;
+            var dt = DB.Query(@"
+                SELECT тип AS [Тип], номер AS [Номер], дата AS [Дата],
+                       сумма AS [Сумма, ₽],
+                       CASE WHEN проверен=1 THEN '✓ Проверен' ELSE '— Ожидает' END AS [Статус]
+                FROM Документы WHERE партияId=@id",
+                DB.P("@id", _selId));
+            _dgvDocs.DataSource = dt;
+        }
+
+        private void OnSelectPartia()
+        {
+            if (_dgvPartii.SelectedRows.Count == 0) return;
+            _selId = (int)_dgvPartii.SelectedRows[0].Cells["id"].Value;
+            LoadStroki();
+            LoadDocs();
+            Status($"Партия №{_selId} выбрана");
+        }
+
+        // ── Actions ───────────────────────────────────────────────────────────
+        private void NewPartia(ComboBox cmbPst)
+        {
+            if (cmbPst.SelectedValue == null) { Status("Выберите поставщика"); return; }
+            DB.Exec("INSERT INTO ПартииТовара(поставщикId,операторId) VALUES(@p,@o)",
+                DB.P("@p", cmbPst.SelectedValue), DB.P("@o", Session.UserId));
+            Load_();
+            Status("Новая партия создана");
+        }
+
+        private void SendToSklad()
+        {
+            if (_selId < 0) { Status("Выберите партию"); return; }
+
+            // Check 3 document types present
+            var cnt = Convert.ToInt32(DB.Scalar(
+                "SELECT COUNT(DISTINCT тип) FROM Документы WHERE партияId=@id AND проверен=1",
+                DB.P("@id", _selId)));
+
+            if (cnt < 3)
+            {
+                MessageBox.Show(
+                    "Необходимо добавить и отметить проверенными все три документа:\n" +
+                    "• Накладная\n• СчётФактуры\n• СертификатКачества",
+                    "Недостаточно документов", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Update warehouse quantities
-            var stroki = DbHelper.ExecuteQuery(
-                "SELECT товарId, количество FROM СтрокиПартии WHERE партияId=@id",
-                new[] { new SqlParameter("@id", selectedPartiyaId) });
-
-            foreach (DataRow row in stroki.Rows)
+            // Add qty to warehouse
+            var rows = DB.Query("SELECT товарId, количество FROM СтрокиПартии WHERE партияId=@id", DB.P("@id", _selId));
+            foreach (DataRow r in rows.Rows)
             {
-                int товарId = (int)row["товарId"];
-                int кол = (int)row["количество"];
-
-                var exists = DbHelper.ExecuteScalar(
-                    "SELECT COUNT(*) FROM Склад WHERE товарId=@t",
-                    new[] { new SqlParameter("@t", товарId) });
-
-                if (Convert.ToInt32(exists) > 0)
-                    DbHelper.ExecuteNonQuery(
-                        "UPDATE Склад SET количество=количество+@k WHERE товарId=@t",
-                        new[] { new SqlParameter("@k", кол), new SqlParameter("@t", товарId) });
-                else
-                    DbHelper.ExecuteNonQuery(
-                        "INSERT INTO Склад(товарId,количество) VALUES(@t,@k)",
-                        new[] { new SqlParameter("@t", товарId), new SqlParameter("@k", кол) });
+                int tid = (int)r["товарId"], qty = (int)r["количество"];
+                var ex = Convert.ToInt32(DB.Scalar("SELECT COUNT(*) FROM Склад WHERE товарId=@t", DB.P("@t", tid)));
+                if (ex > 0) DB.Exec("UPDATE Склад SET количество=количество+@q WHERE товарId=@t", DB.P("@q", qty), DB.P("@t", tid));
+                else        DB.Exec("INSERT INTO Склад(товарId,количество) VALUES(@t,@q)", DB.P("@t", tid), DB.P("@q", qty));
             }
 
-            DbHelper.ExecuteNonQuery(
-                "UPDATE ПартииТовара SET статус='Принята' WHERE id=@id",
-                new[] { new SqlParameter("@id", selectedPartiyaId) });
-
-            MessageBox.Show("✅ Партия успешно отправлена на склад!", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            LoadPartii();
+            DB.Exec("UPDATE ПартииТовара SET статус='ОтправленаНаСклад' WHERE id=@id", DB.P("@id", _selId));
+            Load_();
+            Status("Партия отправлена на склад");
         }
 
-        private void BtnAddDoc_Click(object sender, EventArgs e)
+        private void RejectPartia()
         {
-            if (selectedPartiyaId < 0) { MessageBox.Show("Выберите партию!"); return; }
+            if (_selId < 0) return;
+            if (MessageBox.Show("Отклонить партию?", "Подтверждение",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            DB.Exec("UPDATE ПартииТовара SET статус='Отклонена' WHERE id=@id", DB.P("@id", _selId));
+            Load_();
+            Status("Партия отклонена");
+        }
 
-            var dlg = new AddDocForm(selectedPartiyaId);
-            if (dlg.ShowDialog() == DialogResult.OK)
-                LoadDocs(selectedPartiyaId);
+        private void AddDoc()
+        {
+            if (_selId < 0) { Status("Выберите партию"); return; }
+            var dlg = new AddDocDialog(_selId);
+            if (dlg.ShowDialog() == DialogResult.OK) LoadDocs();
+        }
+
+        private void MarkChecked()
+        {
+            if (_dgvDocs.SelectedRows.Count == 0 || _selId < 0) return;
+            string тип = _dgvDocs.SelectedRows[0].Cells["Тип"].Value?.ToString();
+            DB.Exec("UPDATE Документы SET проверен=1 WHERE партияId=@id AND тип=@t",
+                DB.P("@id", _selId), DB.P("@t", тип));
+            LoadDocs();
+        }
+
+        // helpers
+        private void LoadCombo(ComboBox c, string sql)
+        {
+            var dt = DB.Query(sql);
+            c.DataSource    = dt;
+            c.DisplayMember = dt.Columns[1].ColumnName;
+            c.ValueMember   = dt.Columns[0].ColumnName;
+        }
+
+        private void Status(string msg) { _lblStatus.Text = msg; }
+    }
+
+    // ─── Диалог добавления документа ─────────────────────────────────────────
+    public class AddDocDialog : Form
+    {
+        private readonly int _partiaId;
+        public AddDocDialog(int partiaId)
+        {
+            _partiaId       = partiaId;
+            Text            = "Добавить документ";
+            Size            = new Size(360, 260);
+            StartPosition   = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox     = false;
+            BackColor       = Clr.BgWhite;
+            Build();
+        }
+
+        private void Build()
+        {
+            int y = 16;
+            void Row(string lbl, Control ctrl)
+            {
+                Controls.Add(UI.MakeLabel(lbl, true) .Also(l => l.Location = new Point(16, y + 2)));
+                ctrl.Location = new Point(130, y); ctrl.Width = 200;
+                Controls.Add(ctrl); y += 36;
+            }
+
+            var cmbTip = UI.MakeCombo(200);
+            cmbTip.Items.AddRange(new[] { "Накладная", "СчётФактуры", "СертификатКачества" });
+            cmbTip.SelectedIndex = 0;
+
+            var txtNom = UI.MakeField(200);
+            var dtp    = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = DateTime.Today, Width = 200, Font = new Font("Segoe UI", 9f) };
+            var numSum = new NumericUpDown  { Minimum = 0, Maximum = 9999999, DecimalPlaces = 2, Width = 200, Font = new Font("Segoe UI", 9f) };
+
+            Row("Тип:",    cmbTip);
+            Row("Номер:",  txtNom);
+            Row("Дата:",   dtp);
+            Row("Сумма:",  numSum);
+
+            var btnOk = UI.MakeBtn("Сохранить", 110, 32);
+            btnOk.Location     = new Point(130, y);
+            btnOk.DialogResult = DialogResult.OK;
+            btnOk.Click += (s, e) =>
+            {
+                DB.Exec("INSERT INTO Документы(партияId,тип,номер,дата,сумма) VALUES(@p,@t,@n,@d,@s)",
+                    DB.P("@p", _partiaId), DB.P("@t", cmbTip.SelectedItem),
+                    DB.P("@n", txtNom.Text), DB.P("@d", dtp.Value.Date), DB.P("@s", numSum.Value));
+            };
+            var btnCancel = UI.MakeBtnOutline("Отмена", 90, 32);
+            btnCancel.Location     = new Point(248, y);
+            btnCancel.DialogResult = DialogResult.Cancel;
+            Controls.Add(btnOk);
+            Controls.Add(btnCancel);
         }
     }
 
-    // ─── Add Document Dialog ─────────────────────────────────────────────────
-    public class AddDocForm : Form
+    internal static class ControlExt
     {
-        private int партияId;
-        public AddDocForm(int partId)
-        {
-            партияId = partId;
-            InitializeComponent();
-        }
-
-        private void InitializeComponent()
-        {
-            this.Text = "Добавить документ";
-            this.Size = new Size(380, 280);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-
-            int y = 20;
-            void AddRow(string label, Control ctrl)
-            {
-                this.Controls.Add(new Label { Text = label, Location = new Point(20, y), AutoSize = true });
-                ctrl.Location = new Point(120, y - 3);
-                ctrl.Width = 220;
-                this.Controls.Add(ctrl);
-                y += 36;
-            }
-
-            var cmbTip = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbTip.Items.AddRange(new[] { "Накладная", "СчетФактура", "СертификатКачества" });
-            cmbTip.SelectedIndex = 0;
-
-            var txtNomer = new TextBox();
-            var dtpDate = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            var numSumma = new NumericUpDown { Minimum = 0, Maximum = 9999999, DecimalPlaces = 2 };
-
-            AddRow("Тип:", cmbTip);
-            AddRow("Номер:", txtNomer);
-            AddRow("Дата:", dtpDate);
-            AddRow("Сумма:", numSumma);
-
-            var btnOk = new Button
-            {
-                Text = "Сохранить", DialogResult = DialogResult.OK,
-                Location = new Point(120, y), Size = new Size(110, 34),
-                BackColor = Color.FromArgb(33, 150, 243), ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            btnOk.FlatAppearance.BorderSize = 0;
-            btnOk.Click += (s, ev) =>
-            {
-                DbHelper.ExecuteNonQuery(
-                    "INSERT INTO Документы(партияId,тип,номер,дата,сумма,проверен) VALUES(@p,@t,@n,@d,@s,1)",
-                    new[] {
-                        new SqlParameter("@p", партияId),
-                        new SqlParameter("@t", cmbTip.SelectedItem),
-                        new SqlParameter("@n", txtNomer.Text),
-                        new SqlParameter("@d", dtpDate.Value.Date),
-                        new SqlParameter("@s", numSumma.Value)
-                    });
-            };
-
-            var btnCancel = new Button
-            {
-                Text = "Отмена", DialogResult = DialogResult.Cancel,
-                Location = new Point(240, y), Size = new Size(100, 34),
-                FlatStyle = FlatStyle.Flat
-            };
-
-            this.Controls.Add(btnOk);
-            this.Controls.Add(btnCancel);
-        }
+        public static T Also<T>(this T ctrl, Action<T> action) where T : Control { action(ctrl); return ctrl; }
     }
 }

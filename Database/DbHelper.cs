@@ -5,108 +5,53 @@ using System.Windows.Forms;
 
 namespace RetailShop.Database
 {
-    public static class DbHelper
+    public static class DB
     {
-        // Измените строку подключения под вашу конфигурацию SQL Server
-        private static string _connectionString = 
+        public static string ConnectionString =
             "Server=venlks\\VENLKS;Database=RetailShop;Integrated Security=True;";
 
-        public static string ConnectionString
-        {
-            get => _connectionString;
-            set => _connectionString = value;
-        }
-
-        public static SqlConnection GetConnection()
-        {
-            return new SqlConnection(_connectionString);
-        }
+        public static SqlConnection GetConn() => new SqlConnection(ConnectionString);
 
         public static bool TestConnection()
         {
-            try
-            {
-                using (var conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
-                    return true;
-                }
-            }
-            catch
-            {
-                return false;
-            }
+            try { using (var c = GetConn()) { c.Open(); return true; } }
+            catch { return false; }
         }
 
-        public static DataTable ExecuteQuery(string sql, SqlParameter[] parameters = null)
+        public static DataTable Query(string sql, params SqlParameter[] p)
         {
             var dt = new DataTable();
             try
             {
-                using (var conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(sql, conn))
-                    {
-                        if (parameters != null)
-                            cmd.Parameters.AddRange(parameters);
-                        using (var adapter = new SqlDataAdapter(cmd))
-                            adapter.Fill(dt);
-                    }
-                }
+                using (var c = GetConn()) { c.Open();
+                    using (var cmd = new SqlCommand(sql, c)) { cmd.Parameters.AddRange(p);
+                        new SqlDataAdapter(cmd).Fill(dt); } }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка БД: " + ex.Message, "Ошибка", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            catch (Exception ex) { MessageBox.Show("Ошибка БД:\n" + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             return dt;
         }
 
-        public static int ExecuteNonQuery(string sql, SqlParameter[] parameters = null)
+        public static int Exec(string sql, params SqlParameter[] p)
         {
             try
             {
-                using (var conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(sql, conn))
-                    {
-                        if (parameters != null)
-                            cmd.Parameters.AddRange(parameters);
-                        return cmd.ExecuteNonQuery();
-                    }
-                }
+                using (var c = GetConn()) { c.Open();
+                    using (var cmd = new SqlCommand(sql, c)) { cmd.Parameters.AddRange(p); return cmd.ExecuteNonQuery(); } }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка БД: " + ex.Message, "Ошибка",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return -1;
-            }
+            catch (Exception ex) { MessageBox.Show("Ошибка БД:\n" + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error); return -1; }
         }
 
-        public static object ExecuteScalar(string sql, SqlParameter[] parameters = null)
+        public static object Scalar(string sql, params SqlParameter[] p)
         {
             try
             {
-                using (var conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(sql, conn))
-                    {
-                        if (parameters != null)
-                            cmd.Parameters.AddRange(parameters);
-                        return cmd.ExecuteScalar();
-                    }
-                }
+                using (var c = GetConn()) { c.Open();
+                    using (var cmd = new SqlCommand(sql, c)) { cmd.Parameters.AddRange(p); return cmd.ExecuteScalar(); } }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка БД: " + ex.Message, "Ошибка",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return null;
-            }
+            catch (Exception ex) { MessageBox.Show("Ошибка БД:\n" + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error); return null; }
         }
+
+        public static SqlParameter P(string name, object val) =>
+            new SqlParameter(name, val ?? DBNull.Value);
     }
 }
