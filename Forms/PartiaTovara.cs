@@ -215,7 +215,7 @@ namespace RetailShop.Forms
         }
 
         // ── Actions ───────────────────────────────────────────────────────────
-        private void NewPartia(ComboBox cmbPst)
+        private void NewPartia(Win11Combo cmbPst)
         {
             if (cmbPst.SelectedValue == null) { Status("Выберите поставщика"); return; }
             DB.Exec("INSERT INTO ПартииТовара(поставщикId,операторId) VALUES(@p,@o)",
@@ -284,7 +284,7 @@ namespace RetailShop.Forms
         }
 
         // helpers
-        private void LoadCombo(ComboBox c, string sql)
+        private void LoadCombo(Win11Combo c, string sql)
         {
             var dt = DB.Query(sql);
             c.DataSource    = dt;
@@ -351,8 +351,4 @@ namespace RetailShop.Forms
         }
     }
 
-    internal static class ControlExt
-    {
-        public static T Also<T>(this T ctrl, Action<T> action) where T : Control { action(ctrl); return ctrl; }
-    }
 }

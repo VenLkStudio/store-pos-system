@@ -1,9 +1,10 @@
 using System;
-using System.Data.SqlClient;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using RetailShop.Database;
 using RetailShop.Forms;
+using RetailShop.Models;
 
 namespace RetailShop
 {
@@ -15,18 +16,16 @@ namespace RetailShop
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // Show connection settings dialog if needed
-            if (!DbHelper.TestConnection())
+            if (!DB.TestConnection())
             {
-                using (var connDlg = new ConnectionDialog())
-                {
-                    if (connDlg.ShowDialog() != DialogResult.OK)
-                        return;
-                }
+                using (var dlg = new ConnectDialog())
+                    if (dlg.ShowDialog() != DialogResult.OK) return;
 
-                if (!DbHelper.TestConnection())
+                if (!DB.TestConnection())
                 {
-                    MessageBox.Show("Не удалось подключиться к базе данных.\nПроверьте настройки подключения и убедитесь, что SQL Server запущен.",
+                    MessageBox.Show(
+                        "Не удалось подключиться к базе данных.\n" +
+                        "Проверьте настройки и убедитесь, что SQL Server запущен.",
                         "Ошибка подключения", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
@@ -36,110 +35,86 @@ namespace RetailShop
         }
     }
 
-    // ─── Connection Settings Dialog ──────────────────────────────────────────
-    public class ConnectionDialog : Form
+    // ─── Connection settings dialog — Win11 style ─────────────────────────────
+    public class ConnectDialog : Form
     {
-        public ConnectionDialog()
+        public ConnectDialog()
         {
-            this.Text = "Настройка подключения к БД";
-            this.Size = new Size(460, 320);
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
+            Text            = "Подключение к базе данных";
+            Size            = new Size(460, 340);
+            StartPosition   = FormStartPosition.CenterScreen;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox     = false;
+            BackColor       = Clr.BgApp;
 
-            var lblTitle = new Label
-            {
-                Text = "Настройки подключения SQL Server",
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                Location = new Point(20, 20),
-                AutoSize = true
-            };
+            var title = UI.MakeTitle("Настройка подключения");
+            title.Location = new Point(16, 16);
 
-            var lblInfo = new Label
-            {
-                Text = "Не удалось подключиться к базе данных.\nНастройте параметры подключения:",
-                Font = new Font("Segoe UI", 9),
-                ForeColor = Color.FromArgb(200, 50, 50),
-                Location = new Point(20, 50),
-                AutoSize = true
-            };
+            var warn = UI.MakeLabel("Не удалось подключиться. Проверьте настройки SQL Server.");
+            warn.ForeColor = Clr.StatusRed;
+            warn.Location  = new Point(16, 52);
 
-            int y = 95;
-            void AddRow(string label, Control ctrl)
+            int y = 84;
+            void Row(string lbl, Control ctrl)
             {
-                this.Controls.Add(new Label { Text = label, Location = new Point(20, y + 2), AutoSize = true });
-                ctrl.Location = new Point(130, y);
-                ctrl.Width = 290;
-                this.Controls.Add(ctrl);
-                y += 38;
+                Controls.Add(UI.MakeLabel(lbl, true).Also(l => l.Location = new Point(16, y + 4)));
+                ctrl.Location = new Point(150, y);
+                if (ctrl is Win11Field wf) { wf.Width = 280; wf.Location = new Point(150, y); }
+                else { ctrl.Width = 280; }
+                Controls.Add(ctrl);
+                y += 42;
             }
 
-            var txtServer = new TextBox { Font = new Font("Segoe UI", 10), Text = "localhost\\SQLEXPRESS" };
-            var txtDatabase = new TextBox { Font = new Font("Segoe UI", 10), Text = "RetailShop" };
-            var chkWindowsAuth = new CheckBox { Text = "Windows Authentication", Checked = true, Width = 290 };
-            var txtUser = new TextBox { Font = new Font("Segoe UI", 10), Enabled = false };
-            var txtPass = new TextBox { Font = new Font("Segoe UI", 10), PasswordChar = '●', Enabled = false };
-
-            chkWindowsAuth.CheckedChanged += (s, e) =>
+            var txtServer = UI.MakeField(280); txtServer.Text = "localhost\\SQLEXPRESS";
+            var txtDb     = UI.MakeField(280); txtDb.Text     = "RetailShop";
+            var chkWin    = new CheckBox
             {
-                txtUser.Enabled = !chkWindowsAuth.Checked;
-                txtPass.Enabled = !chkWindowsAuth.Checked;
+                Text     = "Windows Authentication",
+                Checked  = true,
+                Location = new Point(150, y),
+                AutoSize = true,
+                Font     = new Font("Segoe UI", 9f),
+                ForeColor = Clr.TextPrimary,
+            };
+            y += 34;
+            var txtUser = UI.MakeField(280); txtUser.Enabled = false;
+            var txtPass = UI.MakeField(280); txtPass.PasswordChar = '●'; txtPass.Enabled = false;
+
+            chkWin.CheckedChanged += (s, e) => {
+                txtUser.Enabled = !chkWin.Checked;
+                txtPass.Enabled = !chkWin.Checked;
             };
 
-            AddRow("Сервер:", txtServer);
-            AddRow("База данных:", txtDatabase);
-            this.Controls.Add(new Label { Text = "Аутентификация:", Location = new Point(20, y + 2), AutoSize = true });
-            chkWindowsAuth.Location = new Point(130, y);
-            this.Controls.Add(chkWindowsAuth);
-            y += 38;
-            AddRow("Логин:", txtUser);
-            AddRow("Пароль:", txtPass);
+            Row("Сервер:",         txtServer);
+            Row("База данных:",    txtDb);
+            Controls.Add(chkWin);
+            Row("Пользователь:",   txtUser);
+            Row("Пароль:",         txtPass);
 
-            var btnTest = new Button
+            void Apply()
             {
-                Text = "Проверить подключение",
-                Location = new Point(20, y + 10), Size = new Size(190, 34),
-                FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(240, 240, 240)
-            };
-            btnTest.FlatAppearance.BorderSize = 0;
+                DB.ConnectionString = chkWin.Checked
+                    ? $"Server={txtServer.Text};Database={txtDb.Text};Integrated Security=True;"
+                    : $"Server={txtServer.Text};Database={txtDb.Text};User Id={txtUser.Text};Password={txtPass.Text};";
+            }
+
+            var btnTest   = UI.MakeBtnOutline("Проверить", 110, 32); btnTest.Location = new Point(16, y + 8);
             btnTest.Click += (s, e) =>
             {
-                UpdateConnectionString(txtServer.Text, txtDatabase.Text, chkWindowsAuth.Checked, txtUser.Text, txtPass.Text);
-                if (DbHelper.TestConnection())
-                    MessageBox.Show("✅ Подключение успешно!", "OK", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                else
-                    MessageBox.Show("❌ Не удалось подключиться!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Apply();
+                MessageBox.Show(DB.TestConnection() ? "Подключение успешно!" : "Не удалось подключиться.",
+                    "Проверка", MessageBoxButtons.OK,
+                    DB.TestConnection() ? MessageBoxIcon.Information : MessageBoxIcon.Error);
             };
 
-            var btnOk = new Button
-            {
-                Text = "OK", DialogResult = DialogResult.OK,
-                Location = new Point(220, y + 10), Size = new Size(110, 34),
-                BackColor = Color.FromArgb(33, 150, 243), ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            btnOk.FlatAppearance.BorderSize = 0;
-            btnOk.Click += (s, e) =>
-                UpdateConnectionString(txtServer.Text, txtDatabase.Text, chkWindowsAuth.Checked, txtUser.Text, txtPass.Text);
+            var btnOk = UI.MakeBtn("OK", 90, 32); btnOk.Location = new Point(258, y + 8);
+            btnOk.DialogResult = DialogResult.OK;
+            btnOk.Click       += (s, e) => Apply();
 
-            var btnCancel = new Button
-            {
-                Text = "Отмена", DialogResult = DialogResult.Cancel,
-                Location = new Point(340, y + 10), Size = new Size(90, 34),
-                FlatStyle = FlatStyle.Flat
-            };
+            var btnCancel = UI.MakeBtnOutline("Отмена", 80, 32); btnCancel.Location = new Point(354, y + 8);
+            btnCancel.DialogResult = DialogResult.Cancel;
 
-            this.Controls.AddRange(new Control[] { lblTitle, lblInfo, btnTest, btnOk, btnCancel });
-        }
-
-        private void UpdateConnectionString(string server, string db, bool winAuth, string user, string pass)
-        {
-            string cs;
-            if (winAuth)
-                cs = $"Server={server};Database={db};Integrated Security=True;";
-            else
-                cs = $"Server={server};Database={db};User Id={user};Password={pass};";
-            DbHelper.ConnectionString = cs;
+            Controls.AddRange(new Control[] { title, warn, chkWin, btnTest, btnOk, btnCancel });
         }
     }
 }

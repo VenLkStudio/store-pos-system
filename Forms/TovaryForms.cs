@@ -3,6 +3,7 @@ using System.Data.SqlClient;
 using System.Drawing;
 using System.Windows.Forms;
 using RetailShop.Database;
+using RetailShop.Models;
 
 namespace RetailShop.Forms
 {
@@ -13,7 +14,7 @@ namespace RetailShop.Forms
     public class TovaryForm : Form
     {
         private DataGridView _dgv;
-        private TextBox      _search;
+        private Win11Field   _search;
 
         public TovaryForm() { Build(); Load_(""); }
 
